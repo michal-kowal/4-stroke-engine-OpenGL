@@ -38,7 +38,7 @@ Place, Fifth Floor, Boston, MA  02110 - 1301  USA
 
 float speed_x=0;
 float speed_y=0;
-float speed =2*PI;
+float speed =PI*2;
 float aspectRatio=1;
 
 ShaderProgram *sp;
@@ -64,6 +64,18 @@ std::vector<threeDModel> pistons = {
 	piston3,
 	piston4,
 };
+threeDModel intakeValve14("objects/intake_valve4.obj", 1);
+threeDModel intakeValve23("objects/intake_valve23.obj", 1);
+threeDModel outtakeValve14("objects/outtake_valve14.obj", -1);
+threeDModel outtakeValve23("objects/outtake_valve23.obj", -1);
+std::vector<threeDModel> valves = {
+	intakeValve14,
+	intakeValve23,
+	outtakeValve14,
+	outtakeValve23
+};
+threeDModel camshaft("objects/camshaft1.obj", 1);
+threeDModel camshaft1("objects/camshaft1.obj", -1);
 
 
 //Procedura obsługi błędów
@@ -118,10 +130,10 @@ void freeOpenGLProgram(GLFWwindow* window) {
 
 
 //Procedura rysująca zawartość sceny
-void drawScene(GLFWwindow* window,float angle_x,float angle_y, float angle, float rodAngle) {
+void drawScene(GLFWwindow* window,float angle_x,float angle_y, float angle, float rodAngle, float camshaftAngle) {
 	bool ifCrankshaft = true;
 	bool ifConnectingRod = true;
-	bool ifPiston = true;
+	bool ifPiston = true, ifValves = true, ifCamshaft=true;
 
 	//************Tutaj umieszczaj kod rysujący obraz******************l
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -143,7 +155,7 @@ void drawScene(GLFWwindow* window,float angle_x,float angle_y, float angle, floa
 	glUniformMatrix4fv(sp->u("P"), 1, false, glm::value_ptr(P));
 	glUniformMatrix4fv(sp->u("V"), 1, false, glm::value_ptr(V));
 	
-	glm::mat4 wal, korbowod, tlok;
+	glm::mat4 wal, korbowod, tlok, zawor, walRozrzadu;
 	if (ifCrankshaft) {
 		wal = glm::rotate(M, angle, glm::vec3(1, 0, 0));
 		glUniformMatrix4fv(sp->u("M"), 1, false, glm::value_ptr(wal));
@@ -189,6 +201,60 @@ void drawScene(GLFWwindow* window,float angle_x,float angle_y, float angle, floa
 			glDisableVertexAttribArray(sp->a("normal"));
 		}
 	}
+	if (ifCamshaft) {
+		glm::mat4 tempM = glm::translate(M, glm::vec3(-5.8107f, 7.9487f, 0.60363f));
+		walRozrzadu = glm::rotate(tempM, camshaftAngle, glm::vec3(1, 0, 0));
+		glUniformMatrix4fv(sp->u("M"), 1, false, glm::value_ptr(walRozrzadu));
+		glEnableVertexAttribArray(sp->a("vertex"));  //Włącz przesyłanie danych do atrybutu vertex
+		glVertexAttribPointer(sp->a("vertex"), 4, GL_FLOAT, false, 0, &camshaft.verts[0]); //Wskaż tablicę z danymi dla atrybutu vertex
+		glEnableVertexAttribArray(sp->a("color"));
+		glVertexAttribPointer(sp->a("color"), 4, GL_FLOAT, false, 0, &camshaft.colors[0]);
+		glEnableVertexAttribArray(sp->a("normal"));  //Włącz przesyłanie danych do atrybutu normal
+		glVertexAttribPointer(sp->a("normal"), 4, GL_FLOAT, false, 0, &camshaft.norms[0]);
+		glDrawArrays(GL_TRIANGLES, 0, camshaft.vertexCount); //Narysuj obiekt
+		glDisableVertexAttribArray(sp->a("vertex"));  //Wyłącz przesyłanie danych do atrybutu vertex
+		glDisableVertexAttribArray(sp->a("color"));
+		glDisableVertexAttribArray(sp->a("normal"));
+
+		tempM = glm::translate(M, glm::vec3(-5.8107f, 7.9487f, -0.60363f));
+		walRozrzadu = glm::rotate(tempM, camshaftAngle+PI/4, glm::vec3(1, 0, 0));
+		glUniformMatrix4fv(sp->u("M"), 1, false, glm::value_ptr(walRozrzadu));
+		glEnableVertexAttribArray(sp->a("vertex"));  //Włącz przesyłanie danych do atrybutu vertex
+		glVertexAttribPointer(sp->a("vertex"), 4, GL_FLOAT, false, 0, &camshaft1.verts[0]); //Wskaż tablicę z danymi dla atrybutu vertex
+		glEnableVertexAttribArray(sp->a("color"));
+		glVertexAttribPointer(sp->a("color"), 4, GL_FLOAT, false, 0, &camshaft1.colors[0]);
+		glEnableVertexAttribArray(sp->a("normal"));  //Włącz przesyłanie danych do atrybutu normal
+		glVertexAttribPointer(sp->a("normal"), 4, GL_FLOAT, false, 0, &camshaft1.norms[0]);
+		glDrawArrays(GL_TRIANGLES, 0, camshaft1.vertexCount); //Narysuj obiekt
+		glDisableVertexAttribArray(sp->a("vertex"));  //Wyłącz przesyłanie danych do atrybutu vertex
+		glDisableVertexAttribArray(sp->a("color"));
+		glDisableVertexAttribArray(sp->a("normal"));
+	}
+	if (ifValves) {
+		zawor = M;
+		for (int i = 0; i < valves.size(); i++) {
+			if (camshaftAngle <= PI / 4 && i == 0)
+				zawor = glm::translate(M, glm::vec3(0, (-abs(sin(camshaftAngle * 4))) * 0.1, 0));
+			else if (camshaftAngle >= 1.5 * PI && camshaftAngle <= 1.75 * PI && i == 1)
+				zawor = glm::translate(M, glm::vec3(0, (-abs(sin(camshaftAngle * 4))) * 0.1, 0));
+			else if (camshaftAngle >= 1.75 * PI && camshaftAngle <= 2 * PI && i == 2)
+				zawor = glm::translate(M, glm::vec3(0, (-abs(sin(camshaftAngle * 4))) * 0.1, 0));
+			else if (camshaftAngle >= 1.25 * PI && camshaftAngle <= 1.5 * PI && i == 3)
+				zawor = glm::translate(M, glm::vec3(0, (-abs(sin(camshaftAngle * 4))) * 0.1, 0));
+			else zawor = M;
+			glUniformMatrix4fv(sp->u("M"), 1, false, glm::value_ptr(zawor));
+			glEnableVertexAttribArray(sp->a("vertex"));  //Włącz przesyłanie danych do atrybutu vertex
+			glVertexAttribPointer(sp->a("vertex"), 4, GL_FLOAT, false, 0, &valves[i].verts[0]); //Wskaż tablicę z danymi dla atrybutu vertex
+			glEnableVertexAttribArray(sp->a("color"));
+			glVertexAttribPointer(sp->a("color"), 4, GL_FLOAT, false, 0, &valves[i].colors[0]);
+			glEnableVertexAttribArray(sp->a("normal"));  //Włącz przesyłanie danych do atrybutu normal
+			glVertexAttribPointer(sp->a("normal"), 4, GL_FLOAT, false, 0, &valves[i].norms[0]);
+			glDrawArrays(GL_TRIANGLES, 0, valves[i].vertexCount); //Narysuj obiekt
+			glDisableVertexAttribArray(sp->a("vertex"));  //Wyłącz przesyłanie danych do atrybutu vertex
+			glDisableVertexAttribArray(sp->a("color"));
+			glDisableVertexAttribArray(sp->a("normal"));
+		}
+	}
     glfwSwapBuffers(window); //Przerzuć tylny bufor na przedni
 }
 
@@ -227,18 +293,20 @@ int main(void)
 	float angle_x=0; //Aktualny kąt obrotu obiektu
 	float angle_y=0; //Aktualny kąt obrotu obiektu
 	float angle = 0;
-	float rodAngle = 0, rodAngle1 = 0;
+	float rodAngle = 0, rodAngle1 = 0, camshaftAngle=0;
 	glfwSetTime(0); //Zeruj timer
 	while (!glfwWindowShouldClose(window)) //Tak długo jak okno nie powinno zostać zamknięte
 	{
 		if (angle >= 20 * PI) angle = 0;
+		if (camshaftAngle >= 2*PI) camshaftAngle = 0;
 		angle += speed * glfwGetTime();
+		camshaftAngle += 0.5*speed * glfwGetTime();
         angle_x+=speed_x*glfwGetTime(); //Zwiększ/zmniejsz kąt obrotu na podstawie prędkości i czasu jaki upłynał od poprzedniej klatki
         angle_y+=speed_y*glfwGetTime(); //Zwiększ/zmniejsz kąt obrotu na podstawie prędkości i czasu jaki upłynał od poprzedniej klatki
-		std::cout << angle << std::endl;
+		std::cout << camshaftAngle << std::endl;
 		rodAngle += -cos(angle)*PI*10/180*speed * glfwGetTime();
         glfwSetTime(0); //Zeruj timer
-		drawScene(window,angle_x,angle_y, angle, rodAngle); //Wykonaj procedurę rysującą
+		drawScene(window,angle_x,angle_y, angle, rodAngle, camshaftAngle); //Wykonaj procedurę rysującą
 		glfwPollEvents(); //Wykonaj procedury callback w zalezności od zdarzeń jakie zaszły.
 	}
 
